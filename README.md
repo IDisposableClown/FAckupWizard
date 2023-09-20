@@ -1,0 +1,2 @@
+# FAckupWizard
+FurAffinity.net downloader
