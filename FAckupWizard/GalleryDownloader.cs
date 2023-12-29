@@ -216,9 +216,6 @@ namespace FAckupWizard
 
         public async Task Download()
         {
-            if(!PrepareOut())
-                return;
-
             if (Running)
                 return;
 
@@ -226,14 +223,20 @@ namespace FAckupWizard
 
             OnGalleryDownloadStarted?.Invoke(User);
 
-            for(int i = 0; i < cfg.ParallelDownloadsCount; ++i)
+            if (DLQueue.Count > 0)
             {
-                DownloadNext();
-            }
+                if (PrepareOut())
+                {
+                    for (int i = 0; i < cfg.ParallelDownloadsCount; ++i)
+                    {
+                        DownloadNext();
+                    }
 
-            while(Running)
-            {
-                await Task.Delay(1000);
+                    while (Running)
+                    {
+                        await Task.Delay(1000);
+                    }
+                }
             }
 
             OnGalleryDownloadComplete?.Invoke(User);

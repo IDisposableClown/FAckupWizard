@@ -16,6 +16,7 @@ namespace FAckupWizard.Forms
         private object _prg = new object();
 
         private int UsersProcessed = 0;
+        private int UsersTotal = 0;
         private int DownloadsProcessed = 0;
         private int DownloadsTotal = 0;
 
@@ -82,8 +83,8 @@ namespace FAckupWizard.Forms
         {
             prgUsers.Invoke((MethodInvoker)delegate
             {
-                if (galleryDownloaders.Count != 0)
-                    prgUsers.Value = UsersProcessed * 100 / galleryDownloaders.Count ;
+                if (UsersTotal != 0)
+                    prgUsers.Value = UsersProcessed * 100 / UsersTotal;
             });
         }
 
@@ -118,6 +119,8 @@ namespace FAckupWizard.Forms
                 }
             }
 
+            UsersTotal = galleryDownloaders.Count;
+
             while (galleryDownloaders.Count > 0)
             {
                 lock (_lock)
@@ -129,10 +132,7 @@ namespace FAckupWizard.Forms
                 DownloadsProcessed = 0;
                 UpdateProgressGallery();
                 DownloadsTotal = await Active.GetGalleryItems();
-                if (DownloadsTotal > 0)
-                {
-                    await Active.Download();
-                }
+                await Active.Download();
             }
 
             Unlock();
