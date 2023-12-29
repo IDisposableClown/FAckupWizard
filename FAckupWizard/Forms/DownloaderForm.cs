@@ -1,7 +1,4 @@
-﻿using CefSharp.DevTools.IO;
-using Downloader;
-using FAckupWizard.FAClient;
-using Microsoft.VisualBasic.ApplicationServices;
+﻿using FAckupWizard.FAClient;
 
 namespace FAckupWizard.Forms
 {
@@ -132,7 +129,10 @@ namespace FAckupWizard.Forms
                 DownloadsProcessed = 0;
                 UpdateProgressGallery();
                 DownloadsTotal = await Active.GetGalleryItems();
-                await Active.Download();
+                if (DownloadsTotal > 0)
+                {
+                    await Active.Download();
+                }
             }
 
             Unlock();
