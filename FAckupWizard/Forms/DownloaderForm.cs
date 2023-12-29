@@ -14,11 +14,17 @@ namespace FAckupWizard.Forms
 
         private object _lock = new object();
         private object _prg = new object();
+        private object _writeLock = new object();
 
         private int UsersProcessed = 0;
         private int UsersTotal = 0;
-        private int DownloadsProcessed = 0;
+        private int UserDownloadsProcessed = 0;
+        private int UserDownloadsTotal = 0;
         private int DownloadsTotal = 0;
+        private int DownloadsActual = 0;
+
+        private List<string> UsersSkipped = new List<string>();
+        private List<string> EmptySubsUsers = new List<string>();
 
         public DialogResult Result { get; private set; }
 
@@ -52,12 +58,43 @@ namespace FAckupWizard.Forms
             galleryDownloaders.Enqueue(gdl);
         }
 
-        private void AppendLog(string text)
+        private void AppendLog(string text, bool preform = false)
         {
             logView.Invoke((MethodInvoker)delegate
             {
                 logView.AppendText(text + "\r\n");
             });
+
+            lock(_writeLock)
+            {
+                try
+                {
+                    using (TextWriter writer = File.AppendText(Path.Combine(ctx.OutPath, "download_log.log")))
+                    {
+                        if (!preform)
+                        {
+                            writer.WriteLine(string.Format("[{1:u}] {0}", text, DateTime.Now));
+                        }
+                        else
+                        {
+                            writer.WriteLine(text);
+                        }
+                    }
+                }
+                catch (Exception ex) { }
+            }
+        }
+
+        private void LogSummary()
+        {
+            AppendLog("====================================");
+
+            AppendLog("Users skipped: " + string.Join(", ", UsersSkipped));
+            AppendLog("Users with no submissions that met download criteria or empty galleries: " + string.Join(", ", EmptySubsUsers));
+            AppendLog("Total users parsed: " + UsersTotal);
+            AppendLog(string.Format("Downloaded {0} of {1} selected submissions", DownloadsActual, DownloadsTotal));
+
+            AppendLog("", true);
         }
 
         private void UpdateState(string text)
@@ -72,8 +109,8 @@ namespace FAckupWizard.Forms
         {
             prgFiles.Invoke((MethodInvoker)delegate
             {
-                if(DownloadsTotal != 0)
-                    prgFiles.Value = DownloadsProcessed * 100 / DownloadsTotal;
+                if(UserDownloadsTotal != 0)
+                    prgFiles.Value = UserDownloadsProcessed * 100 / UserDownloadsTotal;
                 else
                     prgFiles.Value = 0;
             });
@@ -127,14 +164,35 @@ namespace FAckupWizard.Forms
                 {
                     Active = galleryDownloaders.Dequeue();
                 }
+
                 UpdateState("Downloading " + Active.User + "'s gallery");
                 AppendLog("Parsing " + Active.User + "'s gallery");
-                DownloadsProcessed = 0;
+                UserDownloadsProcessed = 0;
                 UpdateProgressGallery();
-                DownloadsTotal = await Active.GetGalleryItems();
-                await Active.Download();
+                UserDownloadsTotal = await Active.GetGalleryItems();
+
+                if(Active.SelectedSubsCount == 0)
+                {
+                    AppendLog(Active.User + "'s gallery is empty or no submissions that met download criteria");
+                    EmptySubsUsers.Add(Active.User);
+                }
+
+                if(UserDownloadsTotal == 0)
+                {
+                    AppendLog("Nothing to download");
+                    UsersSkipped.Add(Active.User);
+                    UsersProcessed++;
+                    UpdateProgressUser();
+                }
+                else
+                {
+                    AppendLog("Submission to download count: " + UserDownloadsTotal);
+                    DownloadsTotal += UserDownloadsTotal;
+                    await Active.Download();
+                }
             }
 
+            LogSummary();
             Unlock();
         }
 
@@ -151,7 +209,8 @@ namespace FAckupWizard.Forms
         private void Gdl_OnItemDownloadComplete(GalleryItem item)
         {
             AppendLog("Downloaded: " + item.ViewURL);
-            DownloadsProcessed++;
+            UserDownloadsProcessed++;
+            DownloadsActual++;
             UpdateProgressGallery();
         }
 
@@ -162,12 +221,12 @@ namespace FAckupWizard.Forms
 
         private void Gdl_OnGalleryDownloadStarted(string user)
         {
-            AppendLog(user + " gallery doanload started");
+            AppendLog(user + " gallery download started");
         }
 
         private void Gdl_OnGalleryDownloadComplete(string user)
         {
-            AppendLog(user + " gallery doanloaded");
+            AppendLog(user + " gallery downloaded");
             UsersProcessed++;
             UpdateProgressUser();
         }

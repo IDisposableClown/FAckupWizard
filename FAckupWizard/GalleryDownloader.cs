@@ -23,8 +23,6 @@ namespace FAckupWizard
         public delegate void SubmissionInfoReceived(GalleryItem item);
         public event SubmissionInfoReceived? OnSubmissionInfoReceived;
 
-        public string User { get; private set; }
-
         private GalleryDownloaderConfig cfg;
         private IFAClient Client;
 
@@ -39,6 +37,15 @@ namespace FAckupWizard
         private DownloadHistory DownloadedItems;
 
         private object _lock = new object();
+
+        public string User { get; private set; }
+        public int SelectedSubsCount
+        {
+            get
+            {
+                return UserGallery.Count;
+            }
+        }
 
         public GalleryDownloader(string user, IFAClient client, GalleryDownloaderConfig config)
         {
